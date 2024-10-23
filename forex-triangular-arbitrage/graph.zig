@@ -16,29 +16,28 @@ pub const GraphError = error{
     PathNotExists,
 };
 
-pub fn Graph(comptime T: type, W: type) type {
+pub fn Graph(comptime T: type) type {
     return struct {
         const Node = struct {
-            value: T,
-            conns: std.ArrayList(T),
-            weights: std.ArrayList(?W),
+            adjs: std.ArrayList(T),
+            weights: std.ArrayList(?f64),
         };
 
-        const Edge = struct {
+        pub const Edge = struct {
             a: T,
             b: T,
         };
 
         const Self = @This();
+        nodes: std.ArrayList(T),
         root: std.ArrayList(Node),
         allocator: std.mem.Allocator,
         gType: GraphType,
 
         pub fn init(comptime allocator: std.mem.Allocator, comptime gType: GraphType) !Self {
-            var root = std.ArrayList(Node).init(allocator);
-            _ = &root;
             return Self{
-                .root = root,
+                .nodes = std.ArrayList(T).init(allocator),
+                .root = std.ArrayList(Node).init(allocator),
                 .gType = gType,
                 .allocator = allocator,
             };
@@ -46,27 +45,26 @@ pub fn Graph(comptime T: type, W: type) type {
 
         pub fn deinit(self: *const Self) void {
             for (self.root.items) |vertex| {
-                vertex.conns.deinit();
+                vertex.adjs.deinit();
                 vertex.weights.deinit();
             }
+            self.nodes.deinit();
             self.root.deinit();
         }
 
+        inline fn getNodeIndex(self: *const Self, vertex: T) ?usize {
+            return std.mem.indexOfScalar(T, self.nodes.items, vertex);
+        }
+
         pub fn hasNode(self: *const Self, vertex: T) bool {
-            var has = false;
-            for (self.root.items) |item| {
-                if (item.value == vertex) {
-                    has = true;
-                    break;
-                }
-            }
-            return has;
+            const value = self.getNodeIndex(vertex);
+            return if (value) |_| true else false;
         }
 
         pub fn hasEdge(self: *Self, vertex_a: T, vertex_b: T) bool {
-            const conns = self.getNeighbours(vertex_a);
-            if (conns) |elems| {
-                for (elems.items) |vertex| {
+            const node = self.getNode(vertex_a);
+            if (node) |n| {
+                for (n.adjs.items) |vertex| {
                     if (vertex == vertex_b) {
                         return true;
                     }
@@ -79,13 +77,11 @@ pub fn Graph(comptime T: type, W: type) type {
             if (self.hasNode(vertex)) {
                 return GraphError.NodeAlreadyExists;
             }
-            var node = Node{
-                .value = vertex,
-                .conns = std.ArrayList(T).init(self.allocator),
-                .weights = std.ArrayList(?W).init(self.allocator),
-            };
-            _ = &node;
-            try self.root.append(node);
+            try self.nodes.append(vertex);
+            try self.root.append(Node{
+                .adjs = std.ArrayList(T).init(self.allocator),
+                .weights = std.ArrayList(?f64).init(self.allocator),
+            });
         }
 
         pub fn addNodesFrom(self: *Self, vertices: []T) !void {
@@ -94,45 +90,35 @@ pub fn Graph(comptime T: type, W: type) type {
             }
         }
 
-        fn getNeighbours(self: *Self, vertex: T) ?*std.ArrayList(T) {
-            for (0..self.root.items.len) |i| {
-                if (self.root.items[i].value == vertex) {
-                    return &self.root.items[i].conns;
-                }
-            }
-            return null;
-        }
-
         fn getNode(self: *Self, vertex: T) ?*Node {
-            for (0..self.root.items.len) |i| {
-                if (self.root.items[i].value == vertex) {
+            for (0..self.nodes.items.len) |i| {
+                if (self.nodes.items[i] == vertex) {
                     return &self.root.items[i];
                 }
             }
             return null;
         }
 
-        fn _addEdge(self: *Self, vertex_a: T, vertex_b: T, weight: ?W) !void {
+        fn _addEdge(self: *Self, vertex_a: T, vertex_b: T, weight: ?f64) !void {
             if (!self.hasNode(vertex_b)) {
                 try self.addNode(vertex_b);
             }
             if (!self.hasNode(vertex_a)) {
                 try self.addNode(vertex_a);
             }
-            var node = self.getNode(vertex_a);
-            _ = &node;
+            const node = self.getNode(vertex_a);
             if (node) |n| {
-                for (n.conns.items) |vertex| {
+                for (n.adjs.items) |vertex| {
                     if (vertex == vertex_b) {
                         return GraphError.EdgeAlreadyExists;
                     }
                 }
-                try n.conns.append(vertex_b);
+                try n.adjs.append(vertex_b);
                 try n.weights.append(weight);
             }
         }
 
-        pub fn addWeightedEdge(self: *Self, vertex_a: T, vertex_b: T, weight: ?W) !void {
+        pub fn addWeightedEdge(self: *Self, vertex_a: T, vertex_b: T, weight: ?f64) !void {
             try self._addEdge(vertex_a, vertex_b, weight);
             if (self.gType == GraphType.Undirected) {
                 try self._addEdge(vertex_b, vertex_a, weight);
@@ -150,16 +136,16 @@ pub fn Graph(comptime T: type, W: type) type {
         pub fn numberOfEdges(self: *const Self) u64 {
             var count: u64 = 0;
             for (self.root.items) |node| {
-                count += node.conns.items.len;
+                count += node.adjs.items.len;
             }
-            return count;
+            return if (self.gType == GraphType.Directed) count else count / 2;
         }
 
-        pub fn getWeight(self: *Self, vertex_a: T, vertex_b: T) !?W {
+        pub fn getWeight(self: *Self, vertex_a: T, vertex_b: T) !?f64 {
             const node = self.getNode(vertex_a);
             if (node) |n| {
-                for (0..n.conns.items.len) |i| {
-                    if (n.conns.items[i] == vertex_b) {
+                for (0..n.adjs.items.len) |i| {
+                    if (n.adjs.items[i] == vertex_b) {
                         return n.weights.items[i];
                     }
                 }
@@ -170,25 +156,24 @@ pub fn Graph(comptime T: type, W: type) type {
         pub fn getSuccesors(self: *Self, allocator: std.mem.Allocator, vertex: T) ![]T {
             const node = self.getNode(vertex);
             if (node) |n| {
-                const res = try allocator.alloc(T, n.conns.items.len);
-                std.mem.copyForwards(T, res, n.conns.items);
+                const res = try allocator.alloc(T, n.adjs.items.len);
+                std.mem.copyForwards(T, res, n.adjs.items);
                 return res;
             }
             return GraphError.NodeNotExists;
         }
 
-        /// Return a list of vertex that are predecessor of the required one.
+        /// Returns a list of vertex that are predecessor of the required one.
         /// If the required vertex doesn't exist, an error is returned.
         /// If the required vertex doesn't have any predecessor, a empty list
         /// is returned.
         pub fn getPredecessors(self: *Self, allocator: std.mem.Allocator, vertex: T) ![]T {
             var pred = std.ArrayList(T).init(self.allocator);
-            _ = &pred;
             defer pred.deinit();
-            for (self.root.items) |item| {
-                for (item.conns.items) |v| {
+            for (0..self.root.items.len) |i| {
+                for (self.root.items[i].adjs.items) |v| {
                     if (vertex == v) {
-                        try pred.append(item.value);
+                        try pred.append(self.nodes.items[i]);
                     }
                 }
             }
@@ -196,11 +181,28 @@ pub fn Graph(comptime T: type, W: type) type {
             std.mem.copyForwards(T, res, pred.items);
             return res;
         }
+        
+        /// Returns the list of edges defined in the graph.
+        pub fn getEdges(self: *Self, allocator: std.mem.Allocator) ![]Self.Edge {
+            var edges = std.ArrayList(Self.Edge).init(self.allocator);
+            defer edges.deinit();
+            for (0..self.root.items.len) |i| {
+                for (self.root.items[i].adjs.items) |vertex| {
+                    try edges.append(Self.Edge{
+                        .a = self.nodes.items[i],
+                        .b = vertex,
+                    });
+                }
+            }
+            const res = try allocator.alloc(Self.Edge, edges.items.len);
+            std.mem.copyForwards(Self.Edge, res, edges.items);
+            return res;
+        }
     };
 }
 
 test "GraphAddingNodes" {
-    var g = try Graph(u32, f32).init(std.testing.allocator, GraphType.Directed);
+    var g = try Graph(u32).init(std.testing.allocator, GraphType.Directed);
     defer g.deinit();
     try g.addNode(0);
     try std.testing.expect(g.hasNode(0));
@@ -213,7 +215,7 @@ test "GraphAddingNodes" {
 }
 
 test "GraphAddingEdges" {
-    var g = try Graph(u16, f16).init(std.testing.allocator, GraphType.Undirected);
+    var g = try Graph(u16).init(std.testing.allocator, GraphType.Undirected);
     defer g.deinit();
     try g.addWeightedEdge(5, 3, 1.0);
     try std.testing.expect(g.hasNode(5));
@@ -230,16 +232,16 @@ test "GraphAddingEdges" {
 }
 
 test "GraphBasicMetrics" {
-    var g = try Graph(u8, f16).init(std.testing.allocator, GraphType.Undirected);
+    var g = try Graph(u8).init(std.testing.allocator, GraphType.Undirected);
     defer g.deinit();
     try std.testing.expect(g.numberOfNodes() == 0);
     try g.addEdge(5, 3);
     try std.testing.expect(g.numberOfNodes() == 2);
-    try std.testing.expect(g.numberOfEdges() == 2);
+    try std.testing.expect(g.numberOfEdges() == 1);
 }
 
 test "GraphPredSuc" {
-    var g = try Graph(u8, f16).init(std.testing.allocator, GraphType.Directed);
+    var g = try Graph(u8).init(std.testing.allocator, GraphType.Directed);
     defer g.deinit();
     try g.addEdge(1, 2);
     try g.addEdge(2, 3);
@@ -252,4 +254,7 @@ test "GraphPredSuc" {
     const succ = try g.getSuccesors(std.testing.allocator, 1);
     defer std.testing.allocator.free(succ);
     try std.testing.expect(std.mem.eql(u8, &[_]u8{2, 3}, succ));
+    const edges = try g.getEdges(std.testing.allocator);
+    defer std.testing.allocator.free(edges);
+    try std.testing.expect(g.hasEdge(edges[0].a, edges[0].b));
 }
