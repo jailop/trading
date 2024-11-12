@@ -166,7 +166,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     let history = History::read_csv(&args[1])?;
     let res = ema(&history.close, 9);
-    let factors = stddev(&history.close, 9);
+    let factors = stddev(&res, 9);
     let upper_band = sum(&res, &scale(&factors, 2.0));
     let lower_band = sum(&res, &scale(&factors, -2.0));
     let mut state = State::Sell;
@@ -183,7 +183,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             },
             State::SuddenGap => {
                 if diff > 0.0 && history.open[i] > res[i] {
-                    state = State::Sell;
+                    state = State::Buy;
                     actions.date.push(history.date[i]);
                     actions.price.push(history.close[i]);
                     actions.action.push(state.clone());
@@ -191,7 +191,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             },
             State::Buy => {
                 if diff < 0.0 && history.close[i] < res[i] {
-                    state = State::Buy;
+                    state = State::Sell;
                     actions.date.push(history.date[i]);
                     actions.price.push(history.close[i]);
                     actions.action.push(state.clone());
