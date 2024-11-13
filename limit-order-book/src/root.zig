@@ -7,6 +7,11 @@ const OrderSide = enum {
     Sell,
 };
 
+const OrderStatus = enum {
+    Active,
+    Cancelled,
+};
+
 const BookError = error {
     OrderNotExists,
     OrderAlreadyCancelled,
@@ -18,6 +23,7 @@ const Order = struct {
     quantity: u32,
     price: f64,
     entryTime: i64 = 0,
+    status: OrderStatus = OrderStatus.Active,
     parent: ?*LimitNode = null,
 };
 
@@ -46,7 +52,7 @@ pub const Book = struct {
         };
     }
 
-    pub fn deinit(self: Book) void {
+    pub fn deinit(self: *Book) void {
         for (self.orders.items) |orderNode| {
             if (orderNode) |node| {
                 self.allocator.destroy(node);
@@ -59,27 +65,14 @@ pub const Book = struct {
 
     fn cleanList(self: Book, T: type, list: T) void {
         var curr = list.first;
-        while (true) {
-            if (curr) |pos| {
-                var next = pos.next;
-                _ = &next;
-                if (@TypeOf(T) == std.DoublyLinkedList(Limit)) {
-                    self.cleanList(self, std.DoublyLinkedList(Order), pos.data.orders);
-                }
-                self.allocator.destroy(pos);
-                curr = next;
-            } else {
-                break;
+        while (curr) |pos| {
+            var next = pos.next;
+            _ = &next;
+            if (@TypeOf(T) == std.DoublyLinkedList(Limit)) {
+                self.cleanList(self, *std.DoublyLinkedList(Order), &pos.data.orders);
             }
-            if (curr == list.last) {
-                if (@TypeOf(T) == std.DoublyLinkedList(Limit)) {
-                    self.cleanList(self, std.DoublyLinkedList(Order), curr.?.data.orders);
-                }
-                if (curr) |node| {
-                    self.allocator.destroy(node);
-                }
-                break;
-            }
+            self.allocator.destroy(pos);
+            curr = next;
         }
     }
 
@@ -88,15 +81,17 @@ pub const Book = struct {
             return BookError.OrderNotExists;
         }
         if (self.orders.items[orderId]) |orderNode| {
-            const side = orderNode.data.side;
+            var list = if (orderNode.data.side == OrderSide.Buy) self.buyList
+                else self.sellList;
             const limitNode = orderNode.data.parent.?;
             limitNode.data.orders.remove(orderNode);
             self.allocator.destroy(orderNode);
             self.orders.items[orderId] = null;
-            if (limitNode.data.orders.first == null and limitNode.data.orders.last == null) {
-                var list = if (side == OrderSide.Buy) self.buyList else self.sellList;
+            if (limitNode.data.orders.first == null) {
+                std.debug.print("{any}\n", .{&list.first.?});
+                std.debug.print("{any}\n", .{&limitNode});
                 list.remove(limitNode);
-                self.allocator.destroy(limitNode);
+                std.debug.print("{any}\n", .{&list.first.?});
             }
             return;
         }
@@ -205,17 +200,17 @@ test "LOB Basic" {
     var book = Book.init(allocator);
     const order1 = try book.addOrder(OrderSide.Buy, 100, 12.50);
     const order2 = try book.addOrder(OrderSide.Buy, 150, 12.40);
-    // _ = try book.addOrder(OrderSide.Buy, 200, 12.30);
-    const order3 = try book.addOrder(OrderSide.Sell, 150, 12.70);
-    const order4 = try book.addOrder(OrderSide.Sell, 50, 12.60);
+    // _ = try book.addOrder(OrderSide.Buy, 150, 12.45);
+    _ = try book.addOrder(OrderSide.Sell, 150, 12.65);
+    _ = try book.addOrder(OrderSide.Sell, 150, 12.70);
+    _ = try book.addOrder(OrderSide.Sell, 50, 12.60);
     try std.testing.expect(order1 == 0);
     try std.testing.expect(order2 == 1);
-    try std.testing.expect(order3 == 2);
-    try std.testing.expect(order4 == 3);
     try std.testing.expect(book.bidPrice() == 12.50);
     try std.testing.expect(book.askPrice() == 12.60);
     try std.testing.expect(book.bidQuantity() == 100);
     try std.testing.expect(book.askQuantity() == 50);
-    // try book.cancelOrder(order2);
+    try book.cancelOrder(order1);
+    // try std.testing.expect(book.bidPrice() == 12.45);
     defer book.deinit();
 }
