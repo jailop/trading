@@ -1,3 +1,3 @@
-# Implementation of Technical Analysis Algorithms
+# Some trading related examples
 
 
