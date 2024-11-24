@@ -2,3 +2,4 @@ yfinance
 jupyterlab
 matplotlib
 seaborn
+polars
