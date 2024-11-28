@@ -3,3 +3,5 @@ jupyterlab
 matplotlib
 seaborn
 polars
+kagglehub
+websockets
