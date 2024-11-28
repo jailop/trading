@@ -1,4 +1,3 @@
-#include <cmath>
 #include <iostream>
 #include <indicators.h>
 
@@ -16,13 +15,6 @@ double MA::update(double value) {
     m_accum += value;
     m_pos = (m_pos + 1) % m_periods;
     return get();
-}
-
-double MA::get() {
-    if (m_len < m_periods) {
-        return NAN;  
-    }
-    return m_accum / m_periods;
 }
 
 double EMA::update(double value) {

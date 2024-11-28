@@ -3,18 +3,19 @@
 
 #include <vector>
 #include <utility>
+#include <cmath>
 
 class MA {
 public:
     MA(size_t periods);
     double update(double value);
-    double get();
+    double get() { return m_len < m_periods ? NAN : m_accum / m_periods; }
 private:
-    std::vector<double> m_prevs;
+    double m_accum = 0.0;
     size_t m_periods;
     size_t m_len = 0;
-    size_t m_pos = 0;
-    double m_accum = 0.0;
+    size_t m_pos = 0;  // current m_prevs position
+    std::vector<double> m_prevs; // n-periods array
 };
 
 class EMA {
@@ -23,7 +24,7 @@ public:
         m_smooth = alpha / (1.0 + m_periods);
     }
     double update(double value);
-    double get() { return m_len >= m_periods ? m_prev : NAN; };
+    double get() { return m_len >= m_periods ? m_prev : NAN; }
 private:
     size_t m_periods;
     double m_alpha;
