@@ -1,3 +1,3 @@
-# Some trading related examples
+# Some trading related examples and code pieces
 
 
