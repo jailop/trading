@@ -92,7 +92,7 @@ pub const Book = struct {
                     self.orders.items[orderId] = null;
                     if (curr.?.data.orders.first == null) {
                         list.remove(curr.?);
-                        self.allocator.destroy(curr.?);
+                        // self.allocator.destroy(curr.?);
                     }
                     break;
                 }
@@ -206,7 +206,7 @@ test "LOB Basic" {
     defer book.deinit();
     const order1 = try book.addOrder(OrderSide.Buy, 100, 12.50);
     const order2 = try book.addOrder(OrderSide.Buy, 150, 12.40);
-    // _ = try book.addOrder(OrderSide.Buy, 150, 12.45);
+    _ = try book.addOrder(OrderSide.Buy, 150, 12.45);
     _ = try book.addOrder(OrderSide.Sell, 150, 12.65);
     _ = try book.addOrder(OrderSide.Sell, 150, 12.70);
     _ = try book.addOrder(OrderSide.Sell, 50, 12.60);
@@ -216,7 +216,7 @@ test "LOB Basic" {
     try std.testing.expect(book.askPrice() == 12.60);
     try std.testing.expect(book.bidQuantity() == 100);
     try std.testing.expect(book.askQuantity() == 50);
-    // try book.cancelOrder(order1);
-    // try std.testing.expect(book.bidPrice() == 12.50);
-    // try std.testing.expect(book.bidQuantity() == 150);
+    try book.cancelOrder(order1);
+    try std.testing.expect(book.bidPrice() == 12.50);
+    try std.testing.expect(book.bidQuantity() == 100);
 }

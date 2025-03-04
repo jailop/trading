@@ -46,7 +46,7 @@ impl DMI {
 
     pub fn update(&mut self, low: f64, high: f64, close: f64) -> DMIValue {
         if self.len > 0 {
-            let tr = (high - low).abs()
+            let tr = (high - low)
                 .max((high - self.previous_close).abs())
                 .max((low - self.previous_close).abs());
             let mut dm_pos = high - self.previous_high;

@@ -1,3 +1,5 @@
+//! Financial indicators for streaming data
+
 mod ma;
 mod rsi;
 mod ema;

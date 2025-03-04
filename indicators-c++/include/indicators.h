@@ -20,7 +20,7 @@ private:
 
 class EMA {
 public:
-    EMA(size_t periods, double alpha =  2): m_periods(periods), m_alpha(alpha) {
+    EMA(size_t periods, double alpha = 2.0): m_periods(periods), m_alpha(alpha) {
         m_smooth = alpha / (1.0 + m_periods);
     }
     double update(double value);
