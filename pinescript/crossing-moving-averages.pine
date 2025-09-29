@@ -1,3 +1,14 @@
+// Crossing Moving Averages
+//
+// This strategy is based in two moving averages, one faster than the
+// other. When the faster moving average cross over the slower, it could
+// be interpreted as an uptrend movement and it can be a good time to
+// buy. In the same way, when the faster moving average cross under the
+// slower, it could be interpreted as a downtrend movement in the
+// market, signing a good time to sell.
+//
+// (2025) Jaime Lopez <https://github.com/jailop/>
+
 //@version=6
 indicator("Crossing Moving Averages", overlay=true)
 
