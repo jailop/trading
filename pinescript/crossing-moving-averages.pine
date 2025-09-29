@@ -1,0 +1,21 @@
+//@version=6
+indicator("Crossing Moving Averages", overlay=true)
+
+faster = input.int(9, "Fast Moving Average Period")
+slower = input.int(21, "Slow Moving Average Period")
+avgType = input.string("EMA", "Moving Average Type", options=["SMA", "EMA"])
+
+fastMA = avgType == "EMA" ? ta.ema(close, faster) : ta.ema(close, faster)
+slowMA = avgType == "SMA" ? ta.sma(close, slower) : ta.sma(close, slower)
+
+plot(fastMA, color=color.orange, title="Fast MA", linewidth = 2)
+plot(slowMA, color=color.blue, title="Slow MA", linewidth = 2)
+
+buySignal = ta.crossover(fastMA, slowMA)
+sellSignal = ta.crossunder(fastMA, slowMA)
+
+plotshape(buySignal, title="Buy", location=location.belowbar, color=color.green, style=shape.labelup, text="Buy")
+plotshape(sellSignal, title="Sell", location=location.abovebar, color=color.red, style=shape.labeldown, text="Sell")
+
+alertcondition(buySignal, title="Buy Alert", message="Faster MA above")
+alertcondition(sellSignal, title="Sell Alert", message="Fast MA below")
