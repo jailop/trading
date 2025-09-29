@@ -79,6 +79,10 @@ plt.plot(df.index, df["Close"], label="Close", color="gray")
 plt.plot(df.index, df["FastMA"], label=f"Fast MA ({args.fast})", color="orange")
 plt.plot(df.index, df["SlowMA"], label=f"Slow MA ({args.slow})", color="blue")
 
+plt.fill_between(df.index, df["SlowMA"], df["FastMA"],
+                 where=df["FastMA"] > df["SlowMA"], color="green", alpha=0.2)
+plt.fill_between(df.index, df["SlowMA"], df["FastMA"],
+                 where=df["FastMA"] < df["SlowMA"], color="red", alpha=0.2)
 # Buy/Sell markers
 plt.scatter(
     df.index[df["Buy"]],
